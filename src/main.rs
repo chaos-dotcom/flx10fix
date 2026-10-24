@@ -358,13 +358,32 @@ fn cmd_fix(ui: &Ui, dry: bool) -> ExitCode {
             ui.bold(DISPLAY)
         );
         println!();
-        let inner = format!("{} fix", shell_quote(&exe_s));
+        let log_path = std::env::temp_dir().join(format!("flx10fix-{}.log", std::process::id()));
+        let inner = format!(
+            "{} fix > {} 2>&1",
+            shell_quote(&exe_s),
+            shell_quote(&log_path.to_string_lossy())
+        );
         let apple = format!(
             "do shell script \"{}\" with administrator privileges",
             inner.replace('\\', "\\\\").replace('"', "\\\"")
         );
-        return match Command::new("osascript").arg("-e").arg(&apple).status() {
-            Ok(s) => ExitCode::from(s.code().unwrap_or(1).clamp(0, 255) as u8),
+        let status = Command::new("osascript").arg("-e").arg(&apple).status();
+        let log_text = std::fs::read_to_string(&log_path).unwrap_or_default();
+        let _ = std::fs::remove_file(&log_path);
+        if !log_text.trim().is_empty() {
+            print!("{log_text}");
+        }
+        return match status {
+            Ok(s) if s.success() => ExitCode::SUCCESS,
+            Ok(s) => {
+                eprintln!(
+                    "{}: repair did not complete or was cancelled (osascript exit {}).",
+                    DISPLAY,
+                    s.code().unwrap_or(-1)
+                );
+                ExitCode::from(1u8)
+            }
             Err(e) => {
                 eprintln!("could not run osascript: {e}");
                 ExitCode::from(2u8)
