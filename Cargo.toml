@@ -1,0 +1,9 @@
+[package]
+name = "flx10fix"
+version = "0.1.0"
+edition = "2024"
+description = "Diagnose and fix the DDJ-FLX10 \"NO AUDIO DRIVER\" problem on macOS"
+
+[profile.release]
+strip = true
+lto = true
